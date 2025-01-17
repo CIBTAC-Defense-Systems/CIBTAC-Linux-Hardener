@@ -1,8 +1,10 @@
-# VerdadX-Systems-Linux
-A next-gen, modular Linux security distribution built in Rust, leveraging behavior-based detection, advanced sandboxing, real-time logging, and integrity monitoring. VerdadX Systems for Linux aims to provide robust and adaptive security controls with enterprise-level performance and scalability.
+# CIBTAC Linux Hardener
+A next-gen, modular Linux security distribution built in Rust, leveraging behavior-based detection, advanced sandboxing, real-time logging, and integrity monitoring. CIBTAC Linux Hardener aims to provide robust and adaptive security controls with military-level performance and scalability.
+
 Overview
 
-VerdadX Systems Linux is a custom, security-focused Linux distribution designed to provide a hardened operating system that leverages Rust for performance, security, and maintainability. VerdadX utilizes behavior-based detection, advanced sandboxing, and multi-layered security components to protect against emerging threats while delivering a stable, enterprise-ready solution.
+CIBTAC Linux Hardener is a custom, security-focused Linux distribution designed to provide a hardened operating system that leverages Rust for performance, security, and maintainability. CIBTAC Linux Hardener utilizes behavior-based detection, advanced sandboxing, and multi-layered security components to protect against emerging threats while delivering a stable, enterprise-ready solution.
+
 Features
 
     Behavior-Based Detection Engine: Identifies anomalies and malicious behaviors through real-time monitoring of system activities.
@@ -12,7 +14,8 @@ Features
     Real-Time Logging & Alerts: Collects and displays security events and anomalies, allowing administrators to act on threats swiftly.
     Rust-Based Components: Rewritten from scratch in Rust, each component offers high performance, security, and modularity.
 
-VerdadX System Linux aims to be a comprehensive All-In-One (AIO) solution while maintaining modularity for independent component development, testing, and upgrades.
+CIBTAC Linux Hardener aims to be a comprehensive All-In-One (AIO) solution while maintaining modularity for independent component development, testing, and upgrades.
+
 Table of Contents
 
     Installation
@@ -28,12 +31,12 @@ Table of Contents
 
 Installation
 
-To install VerdadX Secure Linux:
+To install CIBTAC Linux Hardener:
 
     Clone the repository:
 
-git clone https://github.com/yourusername/VerdadX-Secure-Linux.git
-cd VerdadX-Secure-Linux
+git clone https://github.com/CIBTAC-Defense-Systems/CIBTAC Linux Hardener.git
+cd CIBTAC Linux Hardener
 
 Build the core components:
 
@@ -45,7 +48,7 @@ Install and configure each module individually or deploy the entire AIO (All-In-
 
     Follow the prompts to set up behavior-based detection, sandboxing, integrity monitoring, and logging.
 
-    Note: VerdadX Secure Linux is currently available for x86_64 architectures.
+    Note: CIBTAC Linux Hardener is currently available for x86_64 architectures.
 
 Components
 Behavior-Based Detection Engine
@@ -56,7 +59,7 @@ The behavior-based detection engine monitors the system in real-time for unusual
     Modules: Built-in anomaly detection, system call tracing, and custom rule sets
     Usage:
 
-    sudo verdadx-detect start
+    sudo CIBTACLH-detect start
 
 Sandboxing Layer
 
@@ -65,7 +68,7 @@ VerdadX uses a custom-built sandboxing system in Rust, providing application iso
     Features: Resource limits, custom container profiles, network isolation
     Usage:
 
-    sudo verdadx-sandbox run <application>
+    sudo CIBTACLH-sandbox run <application>
 
 Mandatory Access Control (MAC)
 
@@ -81,7 +84,7 @@ Using a file integrity monitoring system, VerdadX regularly scans critical direc
     Features: Hash-based verification, scheduled scans, and change alerts
     Usage:
 
-    sudo verdadx-integrity scan
+    sudo CIBTACLH-integrity scan
 
 Logging & Alerts
 
@@ -94,21 +97,14 @@ Usage
 
 To start VerdadX Secure Linux in All-In-One mode, ensuring all modules are running and integrated:
 
-    Start VerdadX in AIO mode:
+    Start CIBTAC Linux Hardener in AIO mode:
 
-sudo verdadx start
+sudo CIBTACLH start
 
-Configure Sandboxing: Run and monitor any application in an isolated environment:
-
-sudo verdadx-sandbox run <application>
-
-Enable Integrity Monitoring: Regular scans ensure no unauthorized changes are made to critical system files:
-
-sudo verdadx-integrity scan
 
 View Logs & Alerts: Check real-time logs and set alert thresholds through the VerdadX dashboard:
 
-    verdadx-logs view
+    CIBTAC-logs view
 
 Contributing
 
@@ -120,7 +116,7 @@ License
 This project is licensed under the MIT License - see the LICENSE file for details.
 Roadmap
 
-VerdadX Systems Linux is in its initial phase, and upcoming releases will focus on:
+CIBTAC Linux Hardener is in its initial phase, and upcoming releases will focus on:
 
     Enhanced dashboard with customizable alerting and monitoring
     Expanded behavior rule sets for comprehensive detection
