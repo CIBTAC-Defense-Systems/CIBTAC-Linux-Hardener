@@ -35,7 +35,7 @@ To install CIBTAC Linux Hardener:
 
     Clone the repository:
 
-git clone https://github.com/CIBTAC-Defense-Systems/CIBTAC Linux Hardener.git
+git clone https://github.com/CIBTAC-Defense-Systems/CIBTAC-Linux-Hardener.git
 cd CIBTAC Linux Hardener
 
 Build the core components:
