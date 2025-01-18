@@ -4,6 +4,7 @@ mod labels;
 mod policy;
 mod rules;
 
+pub use audit::{AccessAuditor, AuditEvent};
 pub use enforcement::MACEnforcer;
 pub use labels::SecurityLabel;
 pub use policy::MACPolicy;
