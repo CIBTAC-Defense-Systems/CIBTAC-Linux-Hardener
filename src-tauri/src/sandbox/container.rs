@@ -149,3 +149,30 @@ impl Sandbox {
         Ok(monitor.get_result())
     }
 }
+
+impl SandboxState {
+    fn new() -> Self {
+        Self {
+            status: SandboxStatus::Initializing,
+            resource_usage: ResourceUsage::default(),
+            violations: Vec::new(),
+            active_processes: HashMap::new(),
+        }
+    }
+
+    fn verify_permissions(&self) -> Result<(), SandboxError> {
+        // Don't allow write+execute permissions
+        if self.permissions.write && self.permissions.execute {
+            return Err(SandboxError::ProtectionViolation(
+                "Region cannot be both writable and executable".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+// Helper function to generate unique sandbox IDs
+fn generate_sandbox_id() -> String {
+    use uuid::Uuid;
+    Uuid::new_v4().to_string()
+}
