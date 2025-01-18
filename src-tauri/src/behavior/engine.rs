@@ -142,4 +142,26 @@ impl BehaviorEngine {
 
         Ok(())
     }
+
+    pub async fn monitor_package_installation(
+        &self,
+        package: &Package,
+        sandbox: &Sandbox,
+    ) -> Result<BehaviorReport, BehaviorError> {
+        let mut monitor = self.create_installation_monitor(package).await?;
+
+        while let Some(event) = monitor.next().await {
+            // Check for suspicious behavior patterns
+            if let Some(pattern) = self.match_suspicious_pattern(&event).await? {
+                monitor.record_suspicious_activity(pattern);
+            }
+
+            // Monitor resource usage
+            if let Some(violation) = self.check_resource_limits(&event, &sandbox).await? {
+                monitor.record_resource_violation(violation);
+            }
+        }
+
+        Ok(monitor.generate_report())
+    }
 }
