@@ -65,6 +65,15 @@ impl ResourceController {
         })
     }
 
+    async fn initialize_with_config(
+        &mut self,
+        limits: &ResourceLimits,
+    ) -> Result<(), SandboxError> {
+        self.initialize().await?; // Base initialization
+        self.apply_limits(limits).await?; // Apply specific config
+        Ok(())
+    }
+
     pub async fn initialize(&mut self) -> Result<(), SandboxError> {
         // Set up cgroup controllers
         self.setup_cgroups().await?;
@@ -141,6 +150,22 @@ impl ResourceController {
                 tokio::time::sleep(Duration::from_secs(1)).await;
             }
         });
+
+        Ok(())
+    }
+
+    async fn apply_limits(&mut self, limits: &ResourceLimits) -> Result<(), SandboxError> {
+        // Set CPU limits
+        self.set_cpu_quota(limits.cpu_quota).await?;
+
+        // Set memory limits
+        self.set_memory_limit(limits.memory_limit).await?;
+
+        // Set I/O limits
+        self.set_io_bandwidth(limits.io_bandwidth).await?;
+
+        // Set process limits
+        self.set_process_limit(limits.max_processes).await?;
 
         Ok(())
     }

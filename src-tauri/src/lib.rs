@@ -94,7 +94,7 @@ impl SecuritySystem {
         };
 
         // Initialize package analyzer with AI capabilities if available
-        let package_analyzer = Arc::new(
+        let package_monitor = Arc::new(
             PackageAnalyzer::new(ai_engine.clone(), system_config.package_analysis_config).await?,
         );
 
@@ -133,7 +133,7 @@ impl SecuritySystem {
         }
 
         // Start package analyzer
-        self.package_analyzer.initialize().await?;
+        self.package_monitor.initialize().await?;
 
         // Initialize logging system
         self.logger.initialize().await?;

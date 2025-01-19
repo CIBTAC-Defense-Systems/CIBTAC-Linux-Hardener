@@ -32,6 +32,15 @@ pub struct MountRestrictions {
 }
 
 impl FilesystemController {
+    async fn initialize_with_config(
+        &mut self,
+        access: &FilesystemAccess,
+    ) -> Result<(), SandboxError> {
+        self.initialize().await?; // Base initialization
+        self.configure_access(access).await?; // Apply specific config
+        Ok(())
+    }
+
     pub async fn initialize(&mut self) -> Result<(), SandboxError> {
         // Create isolated root filesystem
         self.setup_root_fs().await?;
@@ -185,6 +194,24 @@ impl FilesystemController {
             ));
         }
 
+        Ok(())
+    }
+
+    async fn configure_access(&mut self, access: &FilesystemAccess) -> Result<(), SandboxError> {
+        match access {
+            FilesystemAccess::None => {
+                self.block_all_access().await?;
+            }
+            FilesystemAccess::ReadOnly(paths) => {
+                self.configure_readonly_access(paths).await?;
+            }
+            FilesystemAccess::ReadWrite(paths) => {
+                self.configure_readwrite_access(paths).await?;
+            }
+            FilesystemAccess::Full => {
+                self.configure_full_access().await?;
+            }
+        }
         Ok(())
     }
 }

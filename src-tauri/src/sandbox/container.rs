@@ -60,22 +60,32 @@ impl Sandbox {
         Ok(sandbox)
     }
 
-    pub async fn initialize(&self) -> Result<(), SandboxError> {
+    pub async fn initialize(&self, config: SandboxConfig) -> Result<(), SandboxError> {
         // Set up namespace isolation
         self.setup_namespaces().await?;
 
-        // Initialize resource controls
-        self.resources.write().await.initialize()?;
+        // Initialize resource controls with config
+        self.resources
+            .write()
+            .await
+            .initialize_with_config(&config.resource_limits)?;
 
-        // Set up network isolation
-        self.network.write().await.initialize()?;
+        // Set up network isolation with config
+        self.network
+            .write()
+            .await
+            .initialize_with_config(&config.network_access)?;
 
-        // Set up filesystem isolation
-        self.filesystem.write().await.initialize()?;
+        // Set up filesystem isolation with config
+        self.filesystem
+            .write()
+            .await
+            .initialize_with_config(&config.filesystem_access)?;
 
         // Update state
         let mut state = self.state.write().await;
         state.status = SandboxStatus::Running;
+        state.config = Some(config); // Store config in state for reference
 
         Ok(())
     }

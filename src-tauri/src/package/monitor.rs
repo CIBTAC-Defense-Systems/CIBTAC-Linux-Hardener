@@ -1,7 +1,13 @@
 use crate::{
-    ai::AIEngine, behavior::BehaviorEngine, integrity::IntegrityMonitor,
-    package::analyzers::PackageAnalyzer, sandbox::PackageIsolationManager,
+    ai::AIEngine, behavior::BehaviorEngine, config::ConfigurationManager,
+    integrity::IntegrityMonitor, package::analyzers::PackageAnalyzer,
+    sandbox::PackageIsolationManager,
 };
+
+use super::types::{InstallationReport, InstallationResult};
+use notify::{RecursiveMode, Watcher};
+use std::path::PathBuf;
+use tokio::sync::{mpsc, RwLock};
 
 pub struct PackageSecurityMonitor {
     ai_engine: Arc<AIEngine>,
@@ -10,28 +16,31 @@ pub struct PackageSecurityMonitor {
     integrity_monitor: Arc<IntegrityMonitor>,
     event_manager: Arc<EventManager>,
     alert_system: Arc<AlertSystem>,
-}
-
-#[derive(Debug)]
-pub struct MonitoringContext {
-    package: Package,
-    environment: IsolatedEnvironment,
-    security_level: SecurityLevel,
-    initial_analysis: SecurityAnalysis,
-    monitoring_config: MonitoringConfig,
-}
-
-#[derive(Debug)]
-pub struct SecurityEvent {
-    timestamp: DateTime<Utc>,
-    event_type: EventType,
-    severity: Severity,
-    source: EventSource,
-    details: EventDetails,
-    context: HashMap<String, String>,
+    config: Arc<RwLock<PackageConfig>>,
+    package_manager_watchers: Arc<RwLock<HashMap<String, PackageManagerWatcher>>>,
 }
 
 impl PackageSecurityMonitor {
+    pub async fn initialize(&self) -> Result<(), PackageError> {
+        // Initialize configuration
+        let config = self.config.read().await;
+
+        // Initialize package manager watchers
+        self.initialize_package_managers().await?;
+
+        // Start system monitoring if enabled
+        if config.monitoring_config.enable_process_monitoring {
+            self.start_process_monitoring().await?;
+        }
+
+        // Set up package database monitoring
+        if config.monitoring_config.enable_filesystem_monitoring {
+            self.start_database_monitoring().await?;
+        }
+
+        Ok(())
+    }
+
     pub async fn monitor_package_installation(
         &self,
         package: &Package,
@@ -58,150 +67,107 @@ impl PackageSecurityMonitor {
             .await
     }
 
-    async fn start_monitoring_tasks(
-        &self,
-        context: &MonitoringContext,
-        event_tx: mpsc::Sender<SecurityEvent>,
-        alert_tx: mpsc::Sender<SecurityAlert>,
-    ) -> Result<Vec<JoinHandle<()>>, MonitoringError> {
-        let mut tasks = Vec::new();
+    async fn initialize_package_managers(&self) -> Result<(), PackageError> {
+        let mut watchers = self.package_manager_watchers.write().await;
 
-        // Behavior monitoring task
-        tasks.push(tokio::spawn(self.monitor_behavior(
-            context.clone(),
-            event_tx.clone(),
-            alert_tx.clone(),
-        )));
-
-        // File system monitoring task
-        tasks.push(tokio::spawn(self.monitor_filesystem(
-            context.clone(),
-            event_tx.clone(),
-            alert_tx.clone(),
-        )));
-
-        // Network monitoring task
-        tasks.push(tokio::spawn(self.monitor_network(
-            context.clone(),
-            event_tx.clone(),
-            alert_tx.clone(),
-        )));
-
-        // Resource usage monitoring task
-        tasks.push(tokio::spawn(self.monitor_resources(
-            context.clone(),
-            event_tx.clone(),
-            alert_tx.clone(),
-        )));
-
-        // AI-based anomaly detection task
-        tasks.push(tokio::spawn(self.monitor_anomalies(
-            context.clone(),
-            event_tx,
-            alert_tx,
-        )));
-
-        Ok(tasks)
-    }
-
-    async fn monitor_behavior(
-        &self,
-        context: MonitoringContext,
-        event_tx: mpsc::Sender<SecurityEvent>,
-        alert_tx: mpsc::Sender<SecurityAlert>,
-    ) -> Result<(), MonitoringError> {
-        let mut behavior_monitor = self
-            .behavior_engine
-            .create_package_monitor(&context.package)
+        // Set up watchers for different package managers
+        for manager_type in self.detect_package_managers().await? {
+            let watcher = PackageManagerWatcher::new(
+                manager_type,
+                self.config.clone(),
+                self.event_manager.clone(),
+            )
             .await?;
 
-        while let Some(behavior) = behavior_monitor.next().await {
-            // Analyze behavior with AI
-            let analysis = self.ai_engine.analyze_behavior(&behavior).await?;
+            watchers.insert(manager_type.to_string(), watcher);
+        }
 
-            if analysis.is_suspicious() {
-                // Generate security event
-                let event = SecurityEvent::new(
-                    EventType::SuspiciousBehavior,
-                    analysis.severity,
-                    behavior.details,
-                );
-                event_tx.send(event).await?;
+        Ok(())
+    }
 
-                // Generate alert if needed
-                if analysis.requires_alert() {
-                    let alert = SecurityAlert::from_analysis(analysis);
-                    alert_tx.send(alert).await?;
+    async fn detect_package_managers(&self) -> Result<Vec<PackageManagerType>, PackageError> {
+        let mut managers = Vec::new();
+
+        // Check for system package managers
+        if Path::new("/usr/bin/apt").exists() {
+            managers.push(PackageManagerType::System(SystemPackageManager::Apt));
+        }
+        if Path::new("/usr/bin/dnf").exists() {
+            managers.push(PackageManagerType::System(SystemPackageManager::Dnf));
+        }
+        // Add other package managers...
+
+        // Check for language-specific package managers
+        if Path::new("/usr/bin/pip").exists() {
+            managers.push(PackageManagerType::Language(LanguagePackageManager::Pip));
+        }
+        if Path::new("/usr/bin/npm").exists() {
+            managers.push(PackageManagerType::Language(LanguagePackageManager::Npm));
+        }
+
+        Ok(managers)
+    }
+
+    async fn start_process_monitoring(&self) -> Result<(), PackageError> {
+        let config = self.config.read().await;
+        let process_monitor =
+            ProcessMonitor::new(config.monitoring_config.clone(), self.event_manager.clone());
+
+        tokio::spawn(async move { process_monitor.monitor_package_processes().await });
+
+        Ok(())
+    }
+
+    async fn start_database_monitoring(&self) -> Result<(), PackageError> {
+        let watchers = self.package_manager_watchers.read().await;
+
+        for watcher in watchers.values() {
+            watcher.start_database_monitoring().await?;
+        }
+
+        Ok(())
+    }
+
+    async fn monitor_installation_process(
+        &self,
+        context: &MonitoringContext,
+        mut event_rx: mpsc::Receiver<SecurityEvent>,
+        mut alert_rx: mpsc::Receiver<SecurityAlert>,
+    ) -> Result<InstallationResult, MonitoringError> {
+        let mut installation_report = InstallationReport::new();
+
+        while let Some(event) = event_rx.recv().await {
+            match event {
+                SecurityEvent::Behavior(behavior) => {
+                    self.handle_behavior_event(behavior, &mut installation_report)
+                        .await?;
+                }
+                SecurityEvent::Filesystem(fs_event) => {
+                    self.handle_filesystem_event(fs_event, &mut installation_report)
+                        .await?;
+                }
+                SecurityEvent::Network(net_event) => {
+                    self.handle_network_event(net_event, &mut installation_report)
+                        .await?;
+                }
+                SecurityEvent::Resource(res_event) => {
+                    self.handle_resource_event(res_event, &mut installation_report)
+                        .await?;
                 }
             }
-        }
 
-        Ok(())
-    }
-
-    async fn monitor_filesystem(
-        &self,
-        context: MonitoringContext,
-        event_tx: mpsc::Sender<SecurityEvent>,
-        alert_tx: mpsc::Sender<SecurityAlert>,
-    ) -> Result<(), MonitoringError> {
-        let mut fs_monitor = self
-            .integrity_monitor
-            .create_filesystem_monitor(&context.environment)
-            .await?;
-
-        while let Some(fs_event) = fs_monitor.next().await {
-            // Analyze filesystem event
-            let analysis = self.ai_engine.analyze_filesystem_event(&fs_event).await?;
-
-            if analysis.is_violation() {
-                // Generate security event
-                let event = SecurityEvent::new(
-                    EventType::FilesystemViolation,
-                    analysis.severity,
-                    fs_event.details,
-                );
-                event_tx.send(event).await?;
-
-                // Handle violation
-                self.handle_filesystem_violation(&context, &fs_event, &analysis)
-                    .await?;
+            // Check for violations that require immediate action
+            if installation_report.has_critical_violation() {
+                return Err(MonitoringError::CriticalViolation(
+                    installation_report.get_critical_violation(),
+                ));
             }
         }
 
-        Ok(())
-    }
-
-    async fn handle_security_event(
-        &self,
-        event: SecurityEvent,
-        context: &MonitoringContext,
-    ) -> Result<(), MonitoringError> {
-        // Update security context
-        self.update_security_context(&event, context).await?;
-
-        // Determine if action is needed
-        let action = self.determine_security_action(&event, context).await?;
-
-        match action {
-            SecurityAction::Alert => {
-                self.alert_system.raise_alert(event).await?;
-            }
-            SecurityAction::Block => {
-                self.isolation_manager
-                    .block_activity(&context.environment, &event)
-                    .await?;
-            }
-            SecurityAction::Terminate => {
-                self.terminate_package_installation(&context.environment)
-                    .await?;
-            }
-            SecurityAction::Log => {
-                self.event_manager.log_event(event).await?;
-            }
-        }
-
-        Ok(())
+        Ok(InstallationResult {
+            installation_report,
+            ..Default::default()
+        })
     }
 
     async fn generate_monitoring_report(
@@ -209,22 +175,58 @@ impl PackageSecurityMonitor {
         installation_result: InstallationResult,
         monitoring_data: MonitoringData,
     ) -> Result<MonitoringReport, MonitoringError> {
-        // Analyze monitoring data with AI
-        let analysis = self
-            .ai_engine
-            .analyze_monitoring_data(&monitoring_data)
-            .await?;
+        // Analyze monitoring data with AI if enabled
+        let analysis = if is_ai_enabled(&self.config) {
+            self.ai_engine
+                .analyze_monitoring_data(&monitoring_data)
+                .await?
+        } else {
+            self.basic_monitoring_analysis(&monitoring_data).await?
+        };
 
-        // Generate comprehensive report
-        let report = MonitoringReport {
-            installation_status: installation_result,
+        Ok(MonitoringReport {
+            installation_status: installation_result.status,
             security_events: monitoring_data.events,
             behavior_analysis: analysis.behavior,
             integrity_status: analysis.integrity,
             security_recommendations: analysis.recommendations,
             risk_assessment: analysis.risk_assessment,
-        };
+        })
+    }
+}
 
-        Ok(report)
+#[derive(Debug)]
+pub struct MonitoringReport {
+    pub installation_status: InstallationStatus,
+    pub security_events: Vec<SecurityEvent>,
+    pub behavior_analysis: BehaviorAnalysis,
+    pub integrity_status: IntegrityStatus,
+    pub security_recommendations: Vec<SecurityRecommendation>,
+    pub risk_assessment: RiskAssessment,
+}
+
+// Supporting types for package manager monitoring
+struct PackageManagerWatcher {
+    manager_type: PackageManagerType,
+    log_watcher: notify::RecommendedWatcher,
+    db_watcher: notify::RecommendedWatcher,
+    event_manager: Arc<EventManager>,
+}
+
+impl PackageManagerWatcher {
+    async fn new(
+        manager_type: PackageManagerType,
+        config: Arc<RwLock<PackageConfig>>,
+        event_manager: Arc<EventManager>,
+    ) -> Result<Self, PackageError> {
+        // Implementation for creating package manager specific watchers
+        // ...
+        todo!()
+    }
+
+    async fn start_database_monitoring(&self) -> Result<(), PackageError> {
+        // Implementation for monitoring package database changes
+        // ...
+        todo!()
     }
 }

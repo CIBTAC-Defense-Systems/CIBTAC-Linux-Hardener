@@ -10,4 +10,4 @@ pub use anomaly::{Anomaly, AnomalyDetectionAlgorithm, AnomalyDetector};
 pub use core::{AccessAuditor, AuditDetails, AuditEvent, AuditEventType};
 pub use patterns::{AuditCondition, AuditPattern, PatternAction};
 pub use retention::{ImportanceFactor, ImportancePolicy, RetentionPolicy};
-pub use storage::{AuditStorage, AuditStorageResult};
+pub use storage::AuditStorage;

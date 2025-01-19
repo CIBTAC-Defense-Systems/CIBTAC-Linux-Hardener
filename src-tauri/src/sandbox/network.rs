@@ -21,6 +21,12 @@ pub struct NetworkPolicy {
 }
 
 impl NetworkController {
+    async fn initialize_with_config(&mut self, access: &NetworkAccess) -> Result<(), SandboxError> {
+        self.initialize().await?; // Base initialization
+        self.configure_access(access).await?; // Apply specific config
+        Ok(())
+    }
+
     pub async fn initialize(&mut self) -> Result<(), SandboxError> {
         // Create virtual interface
         self.create_virtual_interface().await?;
@@ -48,6 +54,22 @@ impl NetworkController {
             return Err(SandboxError::PolicyViolation(
                 PolicyViolation::NetworkViolation,
             ));
+        }
+        Ok(())
+    }
+
+    async fn configure_access(&mut self, access: &NetworkAccess) -> Result<(), SandboxError> {
+        // Configure network access based on policy
+        match access {
+            NetworkAccess::None => {
+                self.block_all_traffic().await?;
+            }
+            NetworkAccess::Limited => {
+                self.apply_network_restrictions().await?;
+            }
+            NetworkAccess::Full => {
+                self.allow_all_traffic().await?;
+            }
         }
         Ok(())
     }
